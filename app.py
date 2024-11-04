@@ -9,10 +9,8 @@ import time
 from dotenv import load_dotenv
 
 # load API key
-
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
-
 
 # Define sectors dictionary
 sectors = {
@@ -51,7 +49,7 @@ sectors = {
 @st.cache_data
 def get_trade_data(year, sector_code):
     """
-    Fetch trade data for a specific year and sector
+    Recupera i dati commerciali per un anno e settore specifico
     """
     try:
         df = comtradeapicall.getFinalData(
@@ -77,57 +75,55 @@ def get_trade_data(year, sector_code):
 
         if df is not None and not df.empty:
             simplified_df = df[["reporterCode", "reporterDesc", "primaryValue"]].copy()
-            simplified_df.columns = ["Country Code", "Country", "Exports (USD)"]
-            simplified_df["Country Code"] = pd.to_numeric(simplified_df["Country Code"])
+            simplified_df.columns = ["Codice Paese", "Paese", "Esportazioni (USD)"]
+            simplified_df["Codice Paese"] = pd.to_numeric(simplified_df["Codice Paese"])
             simplified_df = simplified_df.sort_values(
-                "Exports (USD)", ascending=False
+                "Esportazioni (USD)", ascending=False
             ).reset_index(drop=True)
             return simplified_df
         return None
     except Exception as e:
-        st.error(f"Error fetching data: {str(e)}")
+        st.error(f"Errore nel recupero dei dati: {str(e)}")
         return None
 
 
 def create_top_10_chart(df, sector_name):
     """
-    Create a bar chart of top 10 exporters with Italy highlighted
-    Values shown in millions of USD and market share percentage
+    Crea un grafico a barre dei primi 10 esportatori con l'Italia evidenziata
     """
     top_10 = df.head(10).copy()
 
-    # Convert values to millions and calculate market share
-    top_10["Exports (Millions USD)"] = top_10["Exports (USD)"] / 1_000_000
-    total_value = df["Exports (USD)"].sum()
-    top_10["Market Share"] = (top_10["Exports (USD)"] / total_value) * 100
+    # Converti valori in milioni e calcola quota di mercato
+    top_10["Esportazioni (Milioni USD)"] = top_10["Esportazioni (USD)"] / 1_000_000
+    total_value = df["Esportazioni (USD)"].sum()
+    top_10["Quota di Mercato"] = (top_10["Esportazioni (USD)"] / total_value) * 100
 
-    # Create text with both value and market share, including a line separator
-    # Using HTML formatting for different styles
+    # Crea etichette con valore e quota di mercato
     text_labels = [
         f'<b>${value:,.0f}M</b><br><span style="color: gray;">─────</span><br><span style="font-family: Arial; font-weight: normal;">{share:.1f}%</span>'
         for value, share in zip(
-            top_10["Exports (Millions USD)"], top_10["Market Share"]
+            top_10["Esportazioni (Milioni USD)"], top_10["Quota di Mercato"]
         )
     ]
 
-    # Find Italy's position and value
-    italy_data = df[df["Country Code"] == 380]
+    # Trova la posizione dell'Italia
+    italy_data = df[df["Codice Paese"] == 380]
     italy_position = (
-        df.index[df["Country Code"] == 380][0] + 1 if not italy_data.empty else None
+        df.index[df["Codice Paese"] == 380][0] + 1 if not italy_data.empty else None
     )
 
-    # Create colors array (blue for others, red for Italy)
-    colors = ["rgb(49, 130, 189)"] * 10  # Default blue
+    # Crea array di colori (blu per gli altri, rosso per l'Italia)
+    colors = ["rgb(49, 130, 189)"] * 10
     if not italy_data.empty and italy_position <= 10:
-        colors[italy_position - 1] = "rgb(204, 0, 0)"  # Red for Italy
+        colors[italy_position - 1] = "rgb(204, 0, 0)"
 
     fig = go.Figure()
 
-    # Add bars with values in millions and rounded corners
+    # Aggiungi barre
     fig.add_trace(
         go.Bar(
-            x=top_10["Country"],
-            y=top_10["Exports (Millions USD)"],
+            x=top_10["Paese"],
+            y=top_10["Esportazioni (Milioni USD)"],
             marker_color=colors,
             text=text_labels,
             textposition="auto",
@@ -138,15 +134,14 @@ def create_top_10_chart(df, sector_name):
         )
     )
 
-    # Update layout
+    # Aggiorna layout
     fig.update_layout(
-        title=f"Top 10 Exporters - {sector_name}",
-        xaxis_title="Country",
-        yaxis_title="Exports (Millions USD)",
+        title=f"Top 10 Esportatori - {sector_name}",
+        xaxis_title="Paese",
+        yaxis_title="Esportazioni (Milioni USD)",
         showlegend=False,
         height=600,
         bargap=0.2,
-        # Ensure enough space for the three-line text
         margin=dict(t=100, b=100),
     )
 
@@ -155,43 +150,41 @@ def create_top_10_chart(df, sector_name):
 
 def create_position_trend_chart(historical_df, sector_name):
     """
-    Create a trend chart showing Italy's position over time
+    Crea un grafico dell'andamento della posizione dell'Italia nel tempo
     """
     fig = go.Figure()
 
-    # Create position trend
     fig.add_trace(
         go.Scatter(
-            x=historical_df["Year"],
-            y=historical_df["Position"],
-            name="Position",
+            x=historical_df["Anno"],
+            y=historical_df["Posizione"],
+            name="Posizione",
             line=dict(color="red", width=3),
             mode="lines+markers",
             marker=dict(size=10),
         )
     )
 
-    # Update layout with two-line title
     fig.update_layout(
         title=dict(
-            text="Italy's<br>Competitive Position",
-            y=0.95,  # Adjust title position
+            text="Posizione<br>Competitiva Italia",
+            y=0.95,
             x=0.5,
             xanchor="center",
             yanchor="top",
             font=dict(size=14),
         ),
-        xaxis=dict(title="Year", dtick=1),
+        xaxis=dict(title="Anno", dtick=1),
         yaxis=dict(
-            title="Global Ranking",
+            title="Ranking Globale",
             autorange="reversed",
             tickmode="linear",
             dtick=1,
-            range=[historical_df["Position"].max() + 1, 0],
+            range=[historical_df["Posizione"].max() + 1, 0],
         ),
         height=350,
         showlegend=False,
-        margin=dict(t=60),  # Increase top margin for title
+        margin=dict(t=60),
     )
 
     return fig
@@ -199,37 +192,35 @@ def create_position_trend_chart(historical_df, sector_name):
 
 def create_value_trend_chart(historical_df, sector_name):
     """
-    Create a trend chart showing Italy's export value over time with interpolation
+    Crea un grafico dell'andamento del valore delle esportazioni dell'Italia
     """
     fig = go.Figure()
 
-    # Create value trend with interpolation
     fig.add_trace(
         go.Scatter(
-            x=historical_df["Year"],
-            y=historical_df["Value"],
-            name="Export Value",
+            x=historical_df["Anno"],
+            y=historical_df["Valore"],
+            name="Valore Esportazioni",
             line=dict(color="blue", width=3, shape="spline"),
             mode="lines+markers",
             marker=dict(size=8),
         )
     )
 
-    # Update layout with two-line title
     fig.update_layout(
         title=dict(
-            text="Export Value<br>Trend",
-            y=0.95,  # Adjust title position
+            text="Trend del<br>Valore Esportato",
+            y=0.95,
             x=0.5,
             xanchor="center",
             yanchor="top",
             font=dict(size=14),
         ),
-        xaxis=dict(title="Year", dtick=1),
-        yaxis=dict(title="Exports (Millions USD)", tickformat=",.0f"),
+        xaxis=dict(title="Anno", dtick=1),
+        yaxis=dict(title="Esportazioni (Milioni USD)", tickformat=",.0f"),
         height=350,
         showlegend=False,
-        margin=dict(t=60),  # Increase top margin for title
+        margin=dict(t=60),
     )
 
     return fig
@@ -238,7 +229,7 @@ def create_value_trend_chart(historical_df, sector_name):
 @st.cache_data
 def get_historical_data(sector_code, end_year, years=5):
     """
-    Fetch historical data for Italy's position over several years
+    Recupera i dati storici per la posizione dell'Italia
     """
     historical_data = []
 
@@ -246,69 +237,64 @@ def get_historical_data(sector_code, end_year, years=5):
         try:
             df = get_trade_data(year, sector_code)
             if df is not None:
-                italy_data = df[df["Country Code"] == 380]
+                italy_data = df[df["Codice Paese"] == 380]
                 if not italy_data.empty:
-                    position = df.index[df["Country Code"] == 380][0] + 1
-                    value = (
-                        italy_data["Exports (USD)"].iloc[0] / 1_000_000
-                    )  # Convert to millions
+                    position = df.index[df["Codice Paese"] == 380][0] + 1
+                    value = italy_data["Esportazioni (USD)"].iloc[0] / 1_000_000
                     historical_data.append(
-                        {"Year": year, "Position": position, "Value": value}
+                        {"Anno": year, "Posizione": position, "Valore": value}
                     )
-                time.sleep(1)  # Respect API rate limits
+                time.sleep(1)
         except Exception as e:
-            st.warning(f"Could not fetch data for {year}: {str(e)}")
+            st.warning(f"Impossibile recuperare i dati per l'anno {year}: {str(e)}")
 
     return pd.DataFrame(historical_data)
 
 
 def main():
-    st.title("🌍 International Trade Analysis")
-    st.write("Analyze top exporters by sector with focus on Italy's position")
+    st.title("Analisi del Commercio Internazionale")
+    st.write("Analisi dei principali esportatori per settore con focus sull'Italia")
 
-    # Add citation
+    # Citazione fonte dati
     st.markdown(
         """
-    <div style='font-size: small; color: gray;'>
-    Data source: United Nations Comtrade Database (UN Comtrade)<br>
-    Retrieved from https://comtradeplus.un.org
-    </div>
-    """,
+        <div style='font-size: 0.75em; color: #808080; margin: 1em 0; line-height: 1.5;'>
+            Fonte dati: United Nations Comtrade Database (UN Comtrade)<br>
+            Dati estratti da <a href="https://comtradeplus.un.org" style="color: #808080; text-decoration: none;">https://comtradeplus.un.org</a>
+            <br><br>
+            Elaborazione dati: Antonio Ventresca e <a href="https://github.com/freethrow" style="color: #808080; text-decoration: none; border-bottom: 1px dotted #808080;">Marko Aleksendrić</a>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
-    # Sidebar controls
-    st.sidebar.header("Settings")
+    # Controlli sidebar
+    st.sidebar.header("Impostazioni")
     selected_year = st.sidebar.selectbox(
-        "Select Year", range(datetime.now().year - 1, 2017, -1)
+        "Seleziona Anno", range(datetime.now().year - 1, 2017, -1)
     )
 
     selected_sector = st.sidebar.selectbox(
-        "Select Sector",
+        "Seleziona Settore",
         options=list(sectors.keys()),
         format_func=lambda x: f"{sectors[x]} ({x})",
     )
 
-    # Main content
-    if st.button("Analyze Sector"):
-        with st.spinner("Fetching trade data..."):
-            # Get current year data
+    # Contenuto principale
+    if st.button("Analizza Settore"):
+        with st.spinner("Caricamento dati in corso..."):
             df = get_trade_data(selected_year, selected_sector)
 
             if df is not None:
-                # Create and display current year chart
                 fig_current, italy_position = create_top_10_chart(
                     df, sectors[selected_sector]
                 )
                 st.plotly_chart(fig_current, use_container_width=True)
 
-                # Get and display historical trends
-                with st.spinner("Fetching historical data..."):
+                with st.spinner("Caricamento dati storici..."):
                     historical_df = get_historical_data(selected_sector, selected_year)
                     if not historical_df.empty:
-                        # Create two columns for the trend charts
                         col1, col2 = st.columns(2)
-
                         with col1:
                             fig_position = create_position_trend_chart(
                                 historical_df, sectors[selected_sector]
