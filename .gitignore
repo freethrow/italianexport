@@ -1,0 +1,10 @@
+venv
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.pyc
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.lock
